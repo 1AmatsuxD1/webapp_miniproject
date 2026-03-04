@@ -1,66 +1,75 @@
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using webapp_miniproject.Contracts;
+using webapp_miniproject.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddControllersWithViews();
 
-builder.Services.AddDbContext<GameGroupDbContext>
-(
-    options => options.UseInMemoryDatabase("TestDB")
+builder.Services.AddScoped<Supabase.Client>(_ =>
+    new Supabase.Client(
+        builder.Configuration["SupabaseUrl"] ?? throw new InvalidOperationException("SupabaseUrl is not configured."),
+        builder.Configuration["SupabaseKey"] ?? throw new InvalidOperationException("SupabaseKey is not configured."),
+        new Supabase.SupabaseOptions
+        {
+            AutoRefreshToken = true,
+            AutoConnectRealtime = true
+        }
+    )
 );
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
-using (var scope = app.Services.CreateAsyncScope())
+app.MapPost("/api/gameGroups", async (
+    CreateGameGroupRequest request,
+    Supabase.Client client) =>
 {
-    var db = scope.ServiceProvider.GetRequiredService<GameGroupDbContext>();
-    db.Database.EnsureCreated();
-
-    if (!db.GameInfos.Any())
+    var gameGroup = new GameGroupInfo
     {
-        db.GameInfos.AddRange(
-            new GameInfo { Id = 1, Name = "Game A" },
-            new GameInfo { Id = 2, Name = "Game B" },
-            new GameInfo { Id = 3, Name = "Game C" }
-        );
-        db.SaveChanges();
-    }
+        GameId = request.GameId,
+        Title = request.Title,
+        Description = request.Description,
+        ImageUrl = request.ImageUrl
+    };
 
-    if (!db.GameGroupInfos.Any())
-    {
-        var rnd = new Random();
-        var gameIds = db.GameInfos.Select(g => g.Id).ToList();
+    var response = await client
+        .From<GameGroupInfo>()
+        .Insert(gameGroup);
 
-        var groups = new List<GameGroupInfo>();
+    var newGameGroup = response.Models.First();
 
-        for (int i = 1; i <= 50; i++)
-        {
-            groups.Add(new GameGroupInfo
-            {
-                Id = i,
-                Title = $"Group {i}",
-                Description = $"Description {rnd.Next(1000, 9999)}",
-                GameId = gameIds[rnd.Next(gameIds.Count)],
-                ImageUrl = (i % 3 == 0)
-                    ? "https://media.istockphoto.com/id/1142192548/vector/man-avatar-profile-male-face-silhouette-or-icon-isolated-on-white-background-vector.jpg?s=1024x1024&w=is&k=20&c=ISYAkNv_k8SCN_pHkYWqlWdGSbirhx_yCigo7QC8NAw="
-                    : null
-            });
-        }
+    return Results.Ok(newGameGroup.Id);
+});
 
-        db.GameGroupInfos.AddRange(groups);
-        db.SaveChanges();
-    }
-}
+app.MapGet("/api/gameGroups/{id}", async (int id, Supabase.Client client) =>
+{
+    var response = await client
+        .From<GameGroupInfo>()
+        .Where(g => g.Id == id)
+        .Get();
+
+    var gameGroup = response.Models.FirstOrDefault();
+
+    if (gameGroup is null) return Results.NotFound();
+
+    return Results.Ok(gameGroup);
+});
+
+app.MapDelete("/gameGroups/{id}", async (int id, Supabase.Client client) =>
+{
+    await client
+        .From<GameGroupInfo>()
+        .Where(g => g.Id == id)
+        .Delete();
+
+    return Results.NoContent();
+});
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

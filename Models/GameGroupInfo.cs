@@ -1,21 +1,29 @@
-using System.ComponentModel.DataAnnotations.Schema;
+using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
 
-public class GameInfo
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public List<GameGroupInfo> GameGroupInfos { get; set; } = new();
-}
+namespace webapp_miniproject.Models;
 
-public class GameGroupInfo
+[Table("GameGroupDb")]
+public class GameGroupInfo : BaseModel
 {
+    [PrimaryKey("id", false)]
     public int Id { get; set; }
+
+    [Column("game_id")]
     public int GameId { get; set; }
 
+    [Column("title")]
     public string Title { get; set; } = "";
+
+    [Column("description")]
     public string Description { get; set; } = "";
+
+    [Column("image_url")]
     public string? ImageUrl { get; set; }
 
-    [ForeignKey("GameId")]
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Schema.ForeignKey("GameId")]
     public GameInfo? Game { get; set; }
 }

@@ -7,12 +7,16 @@
 <div class="container py-3">
     <div class="row justify-content-center">
         <div class="col-10 col-md-4 mb-3">
-            <div class="card rounded-3 general-block"">
+            <div class="card rounded-3 general-block">
                 @if (!string.IsNullOrEmpty(Model.ImageUrl))
                 {
                     <img src="@Model.ImageUrl" class="card-img-top" alt="@Model.Title" />
                 }
                 <div class="card-body d-flex flex-column">
+                    @if (Model.Game is not null)
+                    {
+                        <div class="mb-1 small text-muted">@Model.Game.Name</div>
+                    }
                     <h1 class="h4 mb-3 text-light">@Model.Title</h1>
                     <p class="text-light">@Model.Description</p>
                 </div>

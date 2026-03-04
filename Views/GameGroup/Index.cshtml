@@ -1,0 +1,107 @@
+@model IEnumerable<GameInfo>
+
+@{
+    ViewData["Title"] = "Find Group";
+}
+
+<div class="container py-3">
+    <div class="row">
+        <!-- Filter -->
+        <aside id="sidebar" class="col-12 col-md-3 mb-3">
+            <div class="card general-block">
+                <div class="card-body">
+                    <h5 class="card-title text-light">Filters</h5>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Search</label>
+                        <input id="filterSearch" type="search" class="form-control" placeholder="title or description">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Game</label>
+                        <select id="filterGame" class="form-select">
+                            <option value="">All games</option>
+                            @foreach (var g in Model)
+                            {
+                                <option value="@g.Id">@g.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div>
+                        <button id="clearFilter" class="btn btn-sm btn-secondary">Clear filter</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Content -->
+        <main class="col-12 col-md-9">
+            <div id="contentArea">
+                @await Html.PartialAsync("_GameGroups", Model)
+            </div>
+        </main>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function debounce(fn, wait) {
+            let t = null;
+            return function (...args) {
+                clearTimeout(t);
+                t = setTimeout(() => fn.apply(this, args), wait);
+            };
+        }
+
+        function initMasonry() {
+            const grid = document.querySelector(".masonry-grid");
+            if (!grid) return;
+
+            if (grid._masonryInstance) {
+                grid._masonryInstance.destroy();
+            }
+
+            const msnry = new Masonry(grid, {
+                itemSelector: ".col",
+                percentPosition: true
+            });
+
+            grid._masonryInstance = msnry;
+        }
+
+        async function fetchFiltered() {
+            const q = document.getElementById("filterSearch").value.trim();
+            const gameId = document.getElementById("filterGame").value;
+            const params = new URLSearchParams();
+            if (q) params.append("q", q);
+            if (gameId) params.append("gameId", gameId);
+
+            const url = "/Home/FindGroupPartial?" + params.toString();
+            try {
+                const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+                if (!res.ok) throw new Error("network");
+                const html = await res.text();
+                document.getElementById("contentArea").innerHTML = html;
+
+                initMasonry();
+            } catch (e) {
+                console.error("fetchFiltered error", e);
+            }
+        }
+
+        const debouncedFetch = debounce(fetchFiltered, 300);
+
+        document.getElementById("filterSearch").addEventListener("input", debouncedFetch);
+        document.getElementById("filterGame").addEventListener("change", debouncedFetch);
+        document.getElementById("clearFilter").addEventListener("click", function () {
+            document.getElementById("filterSearch").value = "";
+            document.getElementById("filterGame").value = "";
+            fetchFiltered();
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            initMasonry();
+        });
+    </script>
+}
