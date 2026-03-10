@@ -469,4 +469,4 @@ C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\refint\webapp_miniproje
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\webapp_miniproject.pdb
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\webapp_miniproject.genruntimeconfig.cache
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\ref\webapp_miniproject.dll
-C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\rrwdm8fm1t-{0}-zimodvnyu6-zimodvnyu6.gz
+C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\rrwdm8fm1t-{0}-o5uywnnwhs-o5uywnnwhs.gz

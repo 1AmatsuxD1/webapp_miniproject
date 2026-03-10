@@ -1,24 +1,89 @@
+@model webapp_miniproject.Models.ProfileViewModel
+
 @{
     ViewData["Title"] = "Profile";
+    var success = TempData["ProfileSuccess"] as string;
+    var warning = TempData["ProfileWarning"] as string;
+    var error = ViewBag.Error as string;
+    var avatar = string.IsNullOrWhiteSpace(Model?.AvatarUrl)
+        ? "https://placehold.co/300x300/1b2743/eaf0ff?text=Player"
+        : Model.AvatarUrl;
 }
 
 <div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-12 col-md-8 col-lg-6">
-            <div class="card general-block rgb-frame">
-                <div class="card-body p-4 p-md-5">
-                    <p class="text-muted mb-2">Account</p>
-                    <h2 class="text-light mb-1">@(User.Identity?.Name ?? "Player")</h2>
-                    <p class="text-muted mb-4">Manage your account actions from one place.</p>
+    <div class="profile-shell card general-block rgb-frame">
+        <div class="card-body p-4 p-lg-5">
+            <div class="profile-grid">
+                <aside class="profile-panel">
+                    <img src="@avatar" alt="Profile picture" class="profile-avatar" onerror="this.src='https://placehold.co/300x300/1b2743/eaf0ff?text=Player';" />
+                    <h2 class="text-light mb-1">@(Model?.DisplayName ?? "Player")</h2>
+                    <p class="text-muted mb-2">@@@(Model?.Username ?? "player")</p>
+                    @if (!string.IsNullOrWhiteSpace(Model?.FavoriteGame))
+                    {
+                        <p class="profile-favorite mb-0">Favorite game: <strong>@Model?.FavoriteGame</strong></p>
+                    }
+                </aside>
 
-                    <div class="d-grid gap-2">
+                <section>
+                    <h3 class="text-light mb-3">Edit Profile</h3>
+
+                    @if (!string.IsNullOrWhiteSpace(success))
+                    {
+                        <div class="alert">@success</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(warning))
+                    {
+                        <div class="alert">@warning</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(error))
+                    {
+                        <div class="alert alert-danger">@error</div>
+                    }
+
+                    <form asp-action="Profile" method="post" class="profile-form">
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+                        <div class="mb-3">
+                            <label asp-for="DisplayName" class="form-label text-light"></label>
+                            <input asp-for="DisplayName" class="form-control" maxlength="50" />
+                            <span asp-validation-for="DisplayName" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="AvatarUrl" class="form-label text-light">Avatar URL</label>
+                            <input asp-for="AvatarUrl" class="form-control" placeholder="https://..." maxlength="350" />
+                            <span asp-validation-for="AvatarUrl" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="FavoriteGame" class="form-label text-light">Favorite game</label>
+                            <input asp-for="FavoriteGame" class="form-control" maxlength="60" />
+                            <span asp-validation-for="FavoriteGame" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Bio" class="form-label text-light"></label>
+                            <textarea asp-for="Bio" class="form-control" rows="4" maxlength="500" placeholder="Tell players what roles you play, schedule, language, or your goals."></textarea>
+                            <span asp-validation-for="Bio" class="text-danger"></span>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="submit" class="btn btn-primary">Save profile</button>
+                        </div>
+                    </form>
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
                         <form asp-controller="Account" asp-action="Logout" method="post">
-                            <button type="submit" class="btn btn-secondary w-100">Log out</button>
+                            <button type="submit" class="btn btn-secondary">Log out</button>
                         </form>
-                        <a asp-controller="Account" asp-action="DeleteAccount" class="btn btn-danger w-100">Delete account</a>
+                        <a asp-controller="Account" asp-action="DeleteAccount" class="btn btn-danger">Delete account</a>
                     </div>
-                </div>
+                </section>
             </div>
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

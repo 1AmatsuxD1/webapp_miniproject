@@ -108,9 +108,145 @@ public class AccountController : Controller
 
     [Authorize]
     [HttpGet]
-    public IActionResult Profile()
+    public async Task<IActionResult> Profile()
     {
-        return View();
+        var userId = CurrentUserId;
+        if (userId is null)
+        {
+            return RedirectToAction(nameof(Login));
+        }
+
+        var userResponse = await _supabase
+            .From<UserInfo>()
+            .Where(u => u.Id == userId.Value)
+            .Get();
+
+        var user = userResponse.Models.FirstOrDefault();
+        if (user is null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        var model = new ProfileViewModel
+        {
+            Username = user.Username,
+            DisplayName = user.Username
+        };
+
+        try
+        {
+            var profileResponse = await _supabase
+                .From<UserProfileInfo>()
+                .Where(p => p.UserId == userId.Value)
+                .Get();
+
+            var profile = profileResponse.Models.FirstOrDefault();
+            if (profile is not null)
+            {
+                model.DisplayName = string.IsNullOrWhiteSpace(profile.DisplayName) ? user.Username : profile.DisplayName;
+                model.Bio = profile.Bio;
+                model.AvatarUrl = profile.AvatarUrl;
+                model.FavoriteGame = profile.FavoriteGame;
+            }
+        }
+        catch
+        {
+            TempData["ProfileWarning"] = "Profile table is not ready yet. You can still view account actions below.";
+        }
+
+        return View(model);
+    }
+
+    [Authorize]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Profile(ProfileViewModel model)
+    {
+        var userId = CurrentUserId;
+        if (userId is null)
+        {
+            return RedirectToAction(nameof(Login));
+        }
+
+        var userResponse = await _supabase
+            .From<UserInfo>()
+            .Where(u => u.Id == userId.Value)
+            .Get();
+
+        var user = userResponse.Models.FirstOrDefault();
+        if (user is null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
+        model.Username = user.Username;
+
+        if (string.IsNullOrWhiteSpace(model.DisplayName))
+        {
+            model.DisplayName = user.Username;
+        }
+
+        if (!string.IsNullOrWhiteSpace(model.AvatarUrl))
+        {
+            var isValid = Uri.TryCreate(model.AvatarUrl, UriKind.Absolute, out var parsed)
+                          && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps);
+            if (!isValid)
+            {
+                ModelState.AddModelError(nameof(model.AvatarUrl), "Avatar URL must be a valid http/https URL.");
+            }
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            var profileResponse = await _supabase
+                .From<UserProfileInfo>()
+                .Where(p => p.UserId == userId.Value)
+                .Get();
+
+            var profile = profileResponse.Models.FirstOrDefault();
+
+            if (profile is null)
+            {
+                await _supabase
+                    .From<UserProfileInfo>()
+                    .Insert(new UserProfileInfo
+                    {
+                        UserId = userId.Value,
+                        DisplayName = model.DisplayName,
+                        Bio = model.Bio,
+                        AvatarUrl = model.AvatarUrl,
+                        FavoriteGame = model.FavoriteGame,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+            }
+            else
+            {
+                profile.DisplayName = model.DisplayName;
+                profile.Bio = model.Bio;
+                profile.AvatarUrl = model.AvatarUrl;
+                profile.FavoriteGame = model.FavoriteGame;
+                profile.UpdatedAt = DateTime.UtcNow;
+
+                await _supabase
+                    .From<UserProfileInfo>()
+                    .Update(profile);
+            }
+
+            TempData["ProfileSuccess"] = "Profile saved.";
+            return RedirectToAction(nameof(Profile));
+        }
+        catch
+        {
+            ViewBag.Error = "Could not save profile. Ensure Supabase table 'UserProfile' exists with expected columns.";
+            return View(model);
+        }
     }
 
     [HttpPost]
@@ -162,4 +298,7 @@ public class AccountController : Controller
             CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(identity));
     }
+
+    private int? CurrentUserId =>
+        int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 }

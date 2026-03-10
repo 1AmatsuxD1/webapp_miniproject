@@ -520,6 +520,42 @@ a:hover {
     color: var(--text-1);
 }
 
+.profile-shell {
+    max-width: 980px;
+    margin: 0 auto;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.4rem;
+}
+
+.profile-panel {
+    padding: 0.75rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.profile-avatar {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 14px;
+    margin-bottom: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: #111a30;
+}
+
+.profile-favorite {
+    color: var(--text-1);
+}
+
+.profile-form textarea {
+    resize: vertical;
+}
+
 .fw-bold {
     font-weight: 700;
 }
@@ -544,6 +580,10 @@ a:hover {
 
     .picture-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+
+    .profile-grid {
+        grid-template-columns: 1fr;
     }
 
     .pic-1,
