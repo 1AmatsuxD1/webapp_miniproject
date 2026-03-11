@@ -177,8 +177,9 @@ public class GameGroupController : Controller
     {
         var gameInfos = await FetchGameInfosWithGroups();
         SortGameGroups(gameInfos, "newest");
-        var gameCatalog = MergeExtraGames(gameInfos);
-        return View(gameCatalog);
+        // var gameCatalog = MergeExtraGames(gameInfos);
+        // return View(gameCatalog);
+        return View(gameInfos);
     }
 
     [HttpGet]
@@ -433,21 +434,18 @@ public class GameGroupController : Controller
     [HttpGet]
     public async Task<IActionResult> Create()
     {
-        var gamesResponse = await _supabase.From<GameInfo>().Get();
-        ViewBag.Games = MergeExtraGames(gamesResponse.Models);
-        return View();
+        var gameInfos = await FetchGameInfosWithGroups();
+        return View(gameInfos);
     }
 
     [Authorize]
     [HttpPost]
     public async Task<IActionResult> Create(GameGroupInfo model)
     {
-        // var resolvedGameId = await ResolveGameIdAsync(model.GameId);
-
         // Let Supabase generates ID
         var gameGroup = new GameGroupInfo
         {
-            // GameId = resolvedGameId,
+            GameId = model.GameId,
             Title = model.Title,
             Description = model.Description,
             ImageUrl = string.IsNullOrWhiteSpace(model.ImageUrl) ? null : model.ImageUrl,
@@ -481,7 +479,7 @@ public class GameGroupController : Controller
         gameGroup.ParseMetaFromDescription();
 
         var gamesResponse = await _supabase.From<GameInfo>().Get();
-        ViewBag.Games = MergeExtraGames(gamesResponse.Models);
+        ViewBag.Games = gamesResponse.Models.OrderBy(g => g.Name).ToList();
 
         return View(gameGroup);
     }
@@ -498,7 +496,7 @@ public class GameGroupController : Controller
         if (gameGroup is null) return NotFound();
         if (gameGroup.CreatedBy != CurrentUserId) return Forbid();
 
-        gameGroup.GameId = await ResolveGameIdAsync(model.GameId);
+        gameGroup.GameId = model.GameId;
         gameGroup.Title = model.Title;
         gameGroup.Description = model.Description;
         gameGroup.ImageUrl = string.IsNullOrWhiteSpace(model.ImageUrl) ? null : model.ImageUrl;
