@@ -4,7 +4,11 @@ namespace webapp_miniproject.Models;
 
 public class ProfileViewModel
 {
+    public int UserId { get; set; }
+
     public string Username { get; set; } = "";
+
+    public bool IsCurrentUser { get; set; }
 
     [Required]
     [StringLength(50)]

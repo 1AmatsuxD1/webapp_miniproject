@@ -116,46 +116,45 @@ public class AccountController : Controller
             return RedirectToAction(nameof(Login));
         }
 
-        var userResponse = await _supabase
-            .From<UserInfo>()
-            .Where(u => u.Id == userId.Value)
-            .Get();
-
-        var user = userResponse.Models.FirstOrDefault();
-        if (user is null)
+        var (model, profileLoaded) = await BuildProfileViewModelAsync(userId.Value);
+        if (model is null)
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction(nameof(Login));
         }
 
-        var model = new ProfileViewModel
-        {
-            Username = user.Username,
-            DisplayName = user.Username
-        };
+        model.IsCurrentUser = true;
 
-        try
-        {
-            var profileResponse = await _supabase
-                .From<UserProfileInfo>()
-                .Where(p => p.UserId == userId.Value)
-                .Get();
-
-            var profile = profileResponse.Models.FirstOrDefault();
-            if (profile is not null)
-            {
-                model.DisplayName = string.IsNullOrWhiteSpace(profile.DisplayName) ? user.Username : profile.DisplayName;
-                model.Bio = profile.Bio;
-                model.AvatarUrl = profile.AvatarUrl;
-                model.FavoriteGame = profile.FavoriteGame;
-            }
-        }
-        catch
+        if (!profileLoaded)
         {
             TempData["ProfileWarning"] = "Profile table is not ready yet. You can still view account actions below.";
         }
 
         return View(model);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> UserProfile(int id)
+    {
+        if (CurrentUserId == id)
+        {
+            return RedirectToAction(nameof(Profile));
+        }
+
+        var (model, profileLoaded) = await BuildProfileViewModelAsync(id);
+        if (model is null)
+        {
+            return NotFound();
+        }
+
+        model.IsCurrentUser = false;
+
+        if (!profileLoaded)
+        {
+            ViewBag.Error = "This player's profile details are not available yet.";
+        }
+
+        return View("Profile", model);
     }
 
     [Authorize]
@@ -181,7 +180,9 @@ public class AccountController : Controller
             return RedirectToAction(nameof(Login));
         }
 
+        model.UserId = user.Id;
         model.Username = user.Username;
+        model.IsCurrentUser = true;
 
         if (string.IsNullOrWhiteSpace(model.DisplayName))
         {
@@ -297,6 +298,50 @@ public class AccountController : Controller
         await HttpContext.SignInAsync(
             CookieAuthenticationDefaults.AuthenticationScheme,
             new ClaimsPrincipal(identity));
+    }
+
+    private async Task<(ProfileViewModel? Model, bool ProfileLoaded)> BuildProfileViewModelAsync(int userId)
+    {
+        var userResponse = await _supabase
+            .From<UserInfo>()
+            .Where(u => u.Id == userId)
+            .Get();
+
+        var user = userResponse.Models.FirstOrDefault();
+        if (user is null)
+        {
+            return (null, true);
+        }
+
+        var model = new ProfileViewModel
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            DisplayName = user.Username
+        };
+
+        try
+        {
+            var profileResponse = await _supabase
+                .From<UserProfileInfo>()
+                .Where(p => p.UserId == userId)
+                .Get();
+
+            var profile = profileResponse.Models.FirstOrDefault();
+            if (profile is not null)
+            {
+                model.DisplayName = string.IsNullOrWhiteSpace(profile.DisplayName) ? user.Username : profile.DisplayName;
+                model.Bio = profile.Bio;
+                model.AvatarUrl = profile.AvatarUrl;
+                model.FavoriteGame = profile.FavoriteGame;
+            }
+
+            return (model, true);
+        }
+        catch
+        {
+            return (model, false);
+        }
     }
 
     private int? CurrentUserId =>

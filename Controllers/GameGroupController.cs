@@ -273,6 +273,7 @@ public class GameGroupController : Controller
         ViewBag.PendingCount = pendingRequests.Count;
         ViewBag.myRequest = myRequest;
         ViewBag.PendingRequests = pendingWithUsers;
+        ViewBag.Owner = allUsers.FirstOrDefault(u => u.Id == gameGroup.CreatedBy);
 
         return View(gameGroup);
     }
