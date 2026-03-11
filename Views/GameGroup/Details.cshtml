@@ -36,7 +36,7 @@
                         {
                             <span class="rank-badge">@Model.RankTier</span>
                         }
-                        <span class="member-badge">@Model.CurrentMemberCount/@Model.MaxMembers players</span>
+                        <span class="member-badge">@(memberCount + 1)/@Model.MaxMembers players</span>
                         <span class="status-badge status-@Model.EffectiveStatus.ToLowerInvariant()">@Model.EffectiveStatus</span>
                     </div>
 
