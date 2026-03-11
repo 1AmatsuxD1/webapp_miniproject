@@ -3,6 +3,10 @@
 @{
     ViewData["Title"] = Model.Title;
     var isOwner = (bool)(ViewBag.IsOwner ?? false);
+    var pendingRequests = ViewBag.PendingJoinRequests as List<webapp_miniproject.Models.GroupJoinRequestInfo> ?? new();
+    var currentUserJoinStatus = ViewBag.CurrentUserJoinStatus as string;
+    var actionMessage = TempData["GroupActionMessage"] as string;
+    var actionError = TempData["GroupActionError"] as string;
 }
 
 <div class="container py-3">
@@ -25,12 +29,50 @@
                         {
                             <span class="rank-badge">@Model.RankTier</span>
                         }
+                        <span class="member-badge">@Model.CurrentMemberCount/@Model.MaxMembers players</span>
+                        <span class="status-badge status-@Model.EffectiveStatus.ToLowerInvariant()">@Model.EffectiveStatus</span>
                     </div>
+
+                    @if (!string.IsNullOrWhiteSpace(actionMessage))
+                    {
+                        <div class="alert mb-3">@actionMessage</div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(actionError))
+                    {
+                        <div class="alert alert-danger mb-3">@actionError</div>
+                    }
+
                     <p class="text-light">@Model.Description</p>
 
                     <div class="small text-muted mb-3">
-                        Created @Model.CreatedAt.ToString("MMM d, yyyy")
+                        Created @Model.CreatedAt.ToString("MMM d, yyyy") • @Model.PendingRequestCount pending request(s)
                     </div>
+
+                    @if (User.Identity?.IsAuthenticated == true && !isOwner)
+                    {
+                        if (string.Equals(currentUserJoinStatus, "Approved", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div class="alert mb-3">You are already a member of this group.</div>
+                        }
+                        else if (string.Equals(currentUserJoinStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div class="alert mb-3">Your join request is pending approval.</div>
+                        }
+                        else if (Model.EffectiveStatus == "Open")
+                        {
+                            <form asp-action="RequestJoin" asp-route-id="@Model.Id" method="post" class="mb-3">
+                                <button type="submit" class="btn btn-primary w-100">Apply to Join</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="alert mb-3">This group is currently @Model.EffectiveStatus.ToLowerInvariant().</div>
+                        }
+                    }
+                    else if (User.Identity?.IsAuthenticated != true)
+                    {
+                        <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Url.Action("Details", "GameGroup", new { id = Model.Id })" class="btn btn-secondary w-100 mb-3">Sign in to apply</a>
+                    }
 
                     @if (User.Identity?.IsAuthenticated == true && isOwner)
                     {
@@ -60,13 +102,55 @@
                         </div>
                     </div>
                     <div class="card-body d-flex flex-column p-3">
-                        <p class="text-light">@Model.Description</p>
+                        <p class="text-light">Group status: <strong>@Model.EffectiveStatus</strong></p>
+                        <p class="text-light">Capacity: <strong>@Model.CurrentMemberCount / @Model.MaxMembers</strong></p>
+                        <p class="text-light mb-0">Queue: <strong>@Model.QueueType</strong></p>
                     </div>
                 </div>
             </div>
             <div class="h-100">
                 <div class="card rounded-3 p-4 general-block h-100">
-                    <h4 class="text-light">Reviews</h4>
+                    @if (isOwner)
+                    {
+                        <h4 class="text-light mb-3">Join Requests</h4>
+                        @if (!pendingRequests.Any())
+                        {
+                            <p class="text-muted mb-0">No pending requests yet.</p>
+                        }
+                        else
+                        {
+                            <div class="request-list">
+                                @foreach (var request in pendingRequests)
+                                {
+                                    <div class="request-item">
+                                        <div>
+                                            <div class="request-title">@request.Username</div>
+                                            <div class="small text-muted">Requested @request.CreatedAt.ToLocalTime().ToString("MMM d, yyyy HH:mm")</div>
+                                        </div>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <form asp-action="UpdateJoinRequest" asp-route-id="@Model.Id" method="post">
+                                                <input type="hidden" name="requestId" value="@request.Id" />
+                                                <input type="hidden" name="decision" value="approve" />
+                                                <button type="submit" class="btn btn-sm btn-primary">Approve</button>
+                                            </form>
+                                            <form asp-action="UpdateJoinRequest" asp-route-id="@Model.Id" method="post">
+                                                <input type="hidden" name="requestId" value="@request.Id" />
+                                                <input type="hidden" name="decision" value="reject" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <h4 class="text-light mb-3">Group Activity</h4>
+                        <p class="text-light mb-2">Members: <strong>@Model.CurrentMemberCount</strong></p>
+                        <p class="text-light mb-2">Open spots: <strong>@Math.Max(Model.MaxMembers - Model.CurrentMemberCount, 0)</strong></p>
+                        <p class="text-muted mb-0">Send a join request if you want to be part of this squad.</p>
+                    }
                 </div>
             </div>
         </div>

@@ -80,6 +80,25 @@
                         </select>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label text-light">Status</label>
+                        <select id="filterStatus" class="form-select">
+                            <option value="">All statuses</option>
+                            <option value="Open">Open</option>
+                            <option value="Full">Full</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light">Sort</label>
+                        <select id="filterSort" class="form-select">
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="members">Most open spots</option>
+                        </select>
+                    </div>
+
                     <button id="clearFilter" class="btn btn-secondary w-100">Clear filter</button>
                 </div>
             </div>
@@ -136,11 +155,15 @@
             const gameId = document.getElementById("filterGame").value;
             const queueType = document.getElementById("filterQueueType").value;
             const rank = document.getElementById("filterRank").value;
+            const status = document.getElementById("filterStatus").value;
+            const sort = document.getElementById("filterSort").value;
             const params = new URLSearchParams();
             if (q) params.append("q", q);
             if (gameId) params.append("gameId", gameId);
             if (queueType) params.append("queueType", queueType);
             if (rank) params.append("rank", rank);
+            if (status) params.append("status", status);
+            if (sort) params.append("sort", sort);
 
             const url = "/GameGroup/IndexPartial?" + params.toString();
             try {
@@ -230,11 +253,15 @@
             fetchFiltered();
         });
         document.getElementById("filterRank").addEventListener("change", fetchFiltered);
+        document.getElementById("filterStatus").addEventListener("change", fetchFiltered);
+        document.getElementById("filterSort").addEventListener("change", fetchFiltered);
         document.getElementById("clearFilter").addEventListener("click", function () {
             document.getElementById("filterSearch").value = "";
             document.getElementById("filterGame").value = "";
             document.getElementById("filterQueueType").value = "";
             document.getElementById("filterRank").value = "";
+            document.getElementById("filterStatus").value = "";
+            document.getElementById("filterSort").value = "newest";
             renderFilterRankOptions();
             toggleRankFilter();
             fetchFiltered();

@@ -399,7 +399,6 @@ C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\scopedcss\Views\Shared\
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\scopedcss\bundle\webapp_miniproject.styles.css
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\scopedcss\projectbundle\webapp_miniproject.bundle.scp.css
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\o4fzhci66j-{0}-61n19gt1b8-61n19gt1b8.gz
-C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\1gggm9yyfl-{0}-sdcs178ak2-sdcs178ak2.gz
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\oyqy2aj8cp-{0}-nakmwdwsxp-nakmwdwsxp.gz
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\o6iq0emobt-{0}-st1cbwfwo5-st1cbwfwo5.gz
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\n1bokj43ut-{0}-5p029spbuu-5p029spbuu.gz
@@ -469,4 +468,5 @@ C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\refint\webapp_miniproje
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\webapp_miniproject.pdb
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\webapp_miniproject.genruntimeconfig.cache
 C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\ref\webapp_miniproject.dll
-C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\rrwdm8fm1t-{0}-o5uywnnwhs-o5uywnnwhs.gz
+C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\1gggm9yyfl-{0}-yu4s8k9tsc-yu4s8k9tsc.gz
+C:\Documents\GitHub\webapp_miniproject\obj\Debug\net10.0\compressed\rrwdm8fm1t-{0}-xvpf784mku-xvpf784mku.gz

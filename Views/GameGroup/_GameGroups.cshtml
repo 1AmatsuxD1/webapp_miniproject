@@ -41,6 +41,10 @@
                                 <span class="rank-badge">@gameGroup.RankTier</span>
                             }
                         </div>
+                        <div class="group-meta-row mb-2">
+                            <span class="member-badge">@gameGroup.CurrentMemberCount/@gameGroup.MaxMembers players</span>
+                            <span class="status-badge status-@gameGroup.EffectiveStatus.ToLowerInvariant()">@gameGroup.EffectiveStatus</span>
+                        </div>
                         <h5 class="group-card-title">
                             <a asp-controller="GameGroup" asp-action="Details" asp-route-id="@gameGroup.Id">@gameGroup.Title</a>
                         </h5>

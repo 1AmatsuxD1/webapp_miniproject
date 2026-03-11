@@ -75,6 +75,19 @@
                             </select>
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label text-light">Group capacity</label>
+                            <input name="MaxMembers" type="number" class="form-control" min="1" max="20" value="@Model.MaxMembers" required />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-light">Recruitment status</label>
+                            <select name="RecruitmentStatus" class="form-select" data-current-status="@Model.RecruitmentStatus" id="recruitmentStatus" required>
+                                <option value="Open">Open</option>
+                                <option value="Closed">Closed</option>
+                            </select>
+                        </div>
+
                         <button type="submit" class="btn btn-primary w-100">Save Changes</button>
                     </form>
                 </div>
@@ -90,6 +103,7 @@
         const queueType = document.getElementById("queueType");
         const rankField = document.getElementById("rankField");
         const rankTier = document.getElementById("rankTier");
+        const recruitmentStatus = document.getElementById("recruitmentStatus");
 
         const rankSets = {
             valorant:  ["Iron", "Bronze", "Silver", "Gold", "Platinum", "Diamond", "Ascendant", "Immortal", "Radiant"],
@@ -154,6 +168,7 @@
 
         gameId.value = gameId.dataset.currentGame || "";
         queueType.value = queueType.dataset.currentMode || "Casual";
+        recruitmentStatus.value = recruitmentStatus.dataset.currentStatus || "Open";
         renderRankOptions(rankTier.dataset.currentRank || "");
 
         function toggleRankField() {

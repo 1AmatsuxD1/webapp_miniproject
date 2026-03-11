@@ -25,6 +25,21 @@ public class GameGroupInfo : BaseModel
     [JsonIgnore]
     public string? RankTier { get; set; }
 
+    [JsonIgnore]
+    public int MaxMembers { get; set; } = 5;
+
+    [JsonIgnore]
+    public string RecruitmentStatus { get; set; } = "Open";
+
+    [JsonIgnore]
+    public int CurrentMemberCount { get; set; }
+
+    [JsonIgnore]
+    public int PendingRequestCount { get; set; }
+
+    [JsonIgnore]
+    public string? CurrentUserJoinStatus { get; set; }
+
     [Column("image_url")]
     public string? ImageUrl { get; set; }
 
@@ -41,13 +56,29 @@ public class GameGroupInfo : BaseModel
     [JsonIgnore]
     public string PlainDescription { get; set; } = "";
 
+    [JsonIgnore]
+    public string EffectiveStatus
+    {
+        get
+        {
+            if (RecruitmentStatus.Equals("Closed", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Closed";
+            }
+
+            return CurrentMemberCount >= MaxMembers ? "Full" : "Open";
+        }
+    }
+
     public void ParseMetaFromDescription()
     {
         QueueType = "Casual";
         RankTier = null;
+        MaxMembers = 5;
+        RecruitmentStatus = "Open";
         PlainDescription = Description?.Trim() ?? "";
 
-        if (string.IsNullOrWhiteSpace(Description) || !Description.StartsWith("[mode=", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(Description) || !Description.StartsWith("[", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
@@ -80,6 +111,20 @@ public class GameGroupInfo : BaseModel
             {
                 RankTier = string.IsNullOrWhiteSpace(pair[1]) ? null : pair[1];
             }
+
+            if (pair[0].Equals("capacity", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(pair[1], out var capacity)
+                && capacity > 0)
+            {
+                MaxMembers = capacity;
+            }
+
+            if (pair[0].Equals("status", StringComparison.OrdinalIgnoreCase))
+            {
+                RecruitmentStatus = pair[1].Equals("Closed", StringComparison.OrdinalIgnoreCase)
+                    ? "Closed"
+                    : "Open";
+            }
         }
 
         PlainDescription = Description[(endIndex + 1)..].Trim();
@@ -91,13 +136,27 @@ public class GameGroupInfo : BaseModel
         var safeMode = QueueType.Equals("Competitive", StringComparison.OrdinalIgnoreCase)
             ? "Competitive"
             : "Casual";
+        var safeStatus = RecruitmentStatus.Equals("Closed", StringComparison.OrdinalIgnoreCase)
+            ? "Closed"
+            : "Open";
+        var safeCapacity = MaxMembers <= 0 ? 5 : MaxMembers;
 
         var cleanDescription = (Description ?? string.Empty).Trim();
         var cleanRank = string.IsNullOrWhiteSpace(RankTier) ? null : RankTier.Trim();
 
-        var meta = safeMode == "Competitive" && !string.IsNullOrWhiteSpace(cleanRank)
-            ? $"[mode={safeMode};rank={cleanRank}]"
-            : $"[mode={safeMode}]";
+        var metaParts = new List<string>
+        {
+            $"mode={safeMode}",
+            $"capacity={safeCapacity}",
+            $"status={safeStatus}"
+        };
+
+        if (safeMode == "Competitive" && !string.IsNullOrWhiteSpace(cleanRank))
+        {
+            metaParts.Add($"rank={cleanRank}");
+        }
+
+        var meta = $"[{string.Join(';', metaParts)}]";
 
         Description = string.IsNullOrWhiteSpace(cleanDescription)
             ? meta
