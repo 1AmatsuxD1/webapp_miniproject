@@ -4,7 +4,7 @@ using Supabase.Postgrest.Models;
 
 namespace webapp_miniproject.Models;
 
-[Table("GroupJoinRequest")]
+[Table("GroupJoinRequests")]
 public class GroupJoinRequestInfo : BaseModel
 {
     [PrimaryKey("id", false)]

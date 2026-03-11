@@ -21,6 +21,10 @@ public class GameGroupController : Controller
         "Marvel Rivals"
     };
 
+    private int? CurrentUserId => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+
+    // -- Helper ----------------------------------------------------------------
+
     public GameGroupController(Supabase.Client supabase)
     {
         _supabase = supabase;
@@ -78,7 +82,30 @@ public class GameGroupController : Controller
         return created.Models.First().Id;
     }
 
-    private int? CurrentUserId => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+    private async Task<List<GameInfo>> FetchGameInfosWithGroups()
+    {
+        var gamesResponse = await _supabase.From<GameInfo>().Get();
+        var gameGroupsResponse = await _supabase.From<GameGroupInfo>().Get();
+        var joinRequests = await FetchJoinRequestsSafeAsync();
+
+        var groups = gameGroupsResponse.Models;
+
+        foreach (var game in gamesResponse.Models)
+        {
+            game.GameGroupInfos = groups
+                .Where(g => g.GameId == game.Id)
+                .ToList();
+
+            foreach (var group in game.GameGroupInfos)
+            {
+                group.ParseMetaFromDescription();
+            }
+        }
+
+        ApplyJoinStats(gamesResponse.Models.SelectMany(g => g.GameGroupInfos), joinRequests);
+
+        return gamesResponse.Models.OrderBy(g => g.Name).ToList();
+    }
 
     private async Task<List<GroupJoinRequestInfo>> FetchJoinRequestsSafeAsync()
     {
@@ -145,31 +172,6 @@ public class GameGroupController : Controller
         }
     }
 
-    private async Task<List<GameInfo>> FetchGameInfosWithGroups()
-    {
-        var gamesResponse = await _supabase.From<GameInfo>().Get();
-        var gameGroupsResponse = await _supabase.From<GameGroupInfo>().Get();
-        var joinRequests = await FetchJoinRequestsSafeAsync();
-
-        var groups = gameGroupsResponse.Models;
-
-        foreach (var game in gamesResponse.Models)
-        {
-            game.GameGroupInfos = groups
-                .Where(g => g.GameId == game.Id)
-                .ToList();
-
-            foreach (var group in game.GameGroupInfos)
-            {
-                group.ParseMetaFromDescription();
-            }
-        }
-
-        ApplyJoinStats(gamesResponse.Models.SelectMany(g => g.GameGroupInfos), joinRequests);
-
-        return gamesResponse.Models.OrderBy(g => g.Name).ToList();
-    }
-
     // -- Index ----------------------------------------------------------------
 
     [HttpGet]
@@ -224,6 +226,7 @@ public class GameGroupController : Controller
     [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
+        // Fetch the group and its associated game
         var groupResponse = await _supabase
             .From<GameGroupInfo>()
             .Where(g => g.Id == id)
@@ -240,44 +243,57 @@ public class GameGroupController : Controller
 
         gameGroup.Game = gameResponse.Models.FirstOrDefault();
 
-        var joinRequests = await FetchJoinRequestsSafeAsync();
-        var groupRequests = joinRequests.Where(r => r.GroupId == gameGroup.Id).ToList();
-        ApplyJoinStats(new[] { gameGroup }, groupRequests);
+        // Fetch all requests for this group, then split by status
+        var allRequests = await FetchJoinRequestsSafeAsync();
+        var groupRequests = allRequests.Where(r => r.GroupId == id).ToList();
+        var approvedRequests = groupRequests.Where(r => r.Status == "Approved").ToList();
+        var pendingRequests = groupRequests.Where(r => r.Status == "Pending").ToList();
 
-        var currentUserId = CurrentUserId;
-        var latestCurrentUserRequest = currentUserId is null
-            ? null
-            : groupRequests
-                .Where(r => r.UserId == currentUserId.Value)
+        // Resolve usernames for all approved members in one query
+        var allUsers = (await _supabase.From<UserInfo>().Get()).Models;
+        var approvedUserIds = approvedRequests.Select(r => r.UserId).ToHashSet();
+        var members = allUsers.Where(u => approvedUserIds.Contains(u.Id)).ToList();
+
+        // Find the current user's most recent request for this group (any status)
+        var myRequest = CurrentUserId is not null
+            ? groupRequests
+                .Where(r => r.UserId == CurrentUserId.Value)
                 .OrderByDescending(r => r.UpdatedAt)
                 .ThenByDescending(r => r.CreatedAt)
-                .FirstOrDefault();
+                .FirstOrDefault()
+            : null;
 
-        gameGroup.CurrentUserJoinStatus = latestCurrentUserRequest?.Status;
-        ViewBag.CurrentUserJoinStatus = latestCurrentUserRequest?.Status;
-        ViewBag.IsOwner = currentUserId is not null && currentUserId == gameGroup.CreatedBy;
-
-        if ((bool)ViewBag.IsOwner)
+        // For owner: pair each pending request with the requester's username
+        List<(GroupJoinRequestInfo Request, string Username)> pendingWithUsers = new();
+        if (CurrentUserId == gameGroup.CreatedBy)
         {
-            var pendingRequests = groupRequests
-                .Where(r => r.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(r => r.CreatedAt)
-                .ToList();
+            var pendingUserIds = pendingRequests.Select(r => r.UserId).ToHashSet();
+            var pendingUsers = allUsers.Where(u => pendingUserIds.Contains(u.Id))
+                .ToDictionary(u => u.Id);
 
-            await AttachApplicantNamesAsync(pendingRequests);
-            ViewBag.PendingJoinRequests = pendingRequests;
+            pendingWithUsers = pendingRequests
+                .Select(r => (r, pendingUsers.TryGetValue(r.UserId, out var u) ? u.Username : $"User #{r.UserId}"))
+                .ToList();
         }
+
+        ViewBag.IsOwner = CurrentUserId is not null && gameGroup.CreatedBy == CurrentUserId;
+        ViewBag.Members = members;
+        ViewBag.MemberCount = members.Count;
+        ViewBag.PendingCount = pendingRequests.Count;
+        ViewBag.myRequest = myRequest;
+        ViewBag.PendingRequests = pendingWithUsers;
 
         return View(gameGroup);
     }
+
+    // -- Request Join ----------------------------------------------------------------
 
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RequestJoin(int id)
     {
-        var currentUserId = CurrentUserId;
-        if (currentUserId is null)
+        if (CurrentUserId is null)
         {
             return RedirectToAction("Login", "Account", new { returnUrl = Url.Action(nameof(Details), new { id }) });
         }
@@ -288,84 +304,124 @@ public class GameGroupController : Controller
             .Get();
 
         var gameGroup = groupResponse.Models.FirstOrDefault();
-        if (gameGroup is null)
-        {
-            return NotFound();
-        }
+        if (gameGroup is null) return NotFound();
 
         gameGroup.ParseMetaFromDescription();
 
-        if (gameGroup.CreatedBy == currentUserId.Value)
+        // Owners can't request to join their own group
+        if (gameGroup.CreatedBy == CurrentUserId)
         {
-            TempData["GroupActionError"] = "You already own this group.";
+            TempData["Error"] = "You already own this group.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        var joinRequests = await FetchJoinRequestsSafeAsync();
-        var groupRequests = joinRequests.Where(r => r.GroupId == id).ToList();
-        ApplyJoinStats(new[] { gameGroup }, groupRequests);
-
-        if (!gameGroup.EffectiveStatus.Equals("Open", StringComparison.OrdinalIgnoreCase))
-        {
-            TempData["GroupActionError"] = $"This group is {gameGroup.EffectiveStatus.ToLowerInvariant()} right now.";
-            return RedirectToAction(nameof(Details), new { id });
-        }
-
-        var existing = groupRequests
-            .Where(r => r.UserId == currentUserId.Value)
+        // Get this user's most recent request for this group
+        var allRequests = await FetchJoinRequestsSafeAsync();
+        var myRequest = allRequests
+            .Where(r => r.GroupId == id && r.UserId == CurrentUserId.Value)
             .OrderByDescending(r => r.UpdatedAt)
             .ThenByDescending(r => r.CreatedAt)
             .FirstOrDefault();
 
         try
         {
-            if (existing is null)
+            if (myRequest is null)
             {
+                // No prior request — create a fresh one
                 await _supabase
                     .From<GroupJoinRequestInfo>()
                     .Insert(new GroupJoinRequestInfo
                     {
                         GroupId = id,
-                        UserId = currentUserId.Value,
+                        UserId = CurrentUserId.Value,
                         Status = "Pending",
                         CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
+                        UpdatedAt = DateTime.UtcNow,
                     });
+                TempData["Message"] = "Join request sent.";
             }
-            else if (existing.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
+            else if (myRequest.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
             {
-                TempData["GroupActionMessage"] = "Your join request is already pending.";
-                return RedirectToAction(nameof(Details), new { id });
+                TempData["Message"] = "Your request is already pending.";
             }
-            else if (existing.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            else if (myRequest.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
             {
-                TempData["GroupActionMessage"] = "You are already in this group.";
-                return RedirectToAction(nameof(Details), new { id });
+                TempData["Message"] = "You are already a member.";
             }
             else
             {
-                existing.Status = "Pending";
-                existing.UpdatedAt = DateTime.UtcNow;
-                await _supabase.From<GroupJoinRequestInfo>().Update(existing);
+                // Was Rejected, Canceled, or Left — reuse the row and set back to Pending
+                await _supabase
+                    .From<GroupJoinRequestInfo>()
+                    .Where(r => r.Id == myRequest.Id)
+                    .Set(r => r.Status, "Pending")
+                    .Set(r => r.UpdatedAt, DateTime.UtcNow)
+                    .Update();
+                TempData["Message"] = "Join request re-sent.";
             }
-
-            TempData["GroupActionMessage"] = "Join request sent.";
         }
         catch
         {
-            TempData["GroupActionError"] = "Join requests are not ready yet. Create the GroupJoinRequest table in Supabase first.";
+            TempData["Error"] = "Join requests are not ready yet. Create the GroupJoinRequest table in Supabase first.";
         }
 
         return RedirectToAction(nameof(Details), new { id });
     }
+
+    // -- Cancel Request ----------------------------------------------------------------
+
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> CancelRequest(int id)
+    {
+        var allRequests = await FetchJoinRequestsSafeAsync();
+        var myRequest = allRequests
+            .FirstOrDefault(r => r.GroupId == id && r.UserId == CurrentUserId!.Value && r.Status == "Pending");
+
+        if (myRequest is not null)
+        {
+            await _supabase
+                .From<GroupJoinRequestInfo>()
+                .Where(r => r.Id == myRequest.Id)
+                .Set(r => r.Status, "Canceled")
+                .Set(r => r.UpdatedAt, DateTime.UtcNow)
+                .Update();
+        }
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    // -- Leave Group ----------------------------------------------------------------
+
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> Leave(int id)
+    {
+        var allRequests = await FetchJoinRequestsSafeAsync();
+        var myRequest = allRequests
+            .FirstOrDefault(r => r.GroupId == id && r.UserId == CurrentUserId!.Value && r.Status == "Approved");
+
+        if (myRequest is not null)
+        {
+            await _supabase
+                .From<GroupJoinRequestInfo>()
+                .Where(r => r.Id == myRequest.Id)
+                .Set(r => r.Status, "Left")
+                .Set(r => r.UpdatedAt, DateTime.UtcNow)
+                .Update();
+        }
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    // -- Update Join Request (owner approve/reject) ----------------------------------------------------------------
 
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateJoinRequest(int id, int requestId, string decision)
     {
-        var currentUserId = CurrentUserId;
-        if (currentUserId is null)
+        if (CurrentUserId is null)
         {
             return RedirectToAction("Login", "Account", new { returnUrl = Url.Action(nameof(Details), new { id }) });
         }
@@ -376,55 +432,49 @@ public class GameGroupController : Controller
             .Get();
 
         var gameGroup = groupResponse.Models.FirstOrDefault();
-        if (gameGroup is null)
-        {
-            return NotFound();
-        }
-
-        if (gameGroup.CreatedBy != currentUserId.Value)
-        {
-            return Forbid();
-        }
+        if (gameGroup is null) return NotFound();
+        if (gameGroup.CreatedBy != CurrentUserId) return Forbid();
 
         gameGroup.ParseMetaFromDescription();
 
-        var joinRequests = await FetchJoinRequestsSafeAsync();
-        var groupRequests = joinRequests.Where(r => r.GroupId == id).ToList();
-        var request = groupRequests.FirstOrDefault(r => r.Id == requestId);
-
+        var allRequests = await FetchJoinRequestsSafeAsync();
+        var request = allRequests.FirstOrDefault(r => r.Id == requestId);
         if (request is null)
         {
-            TempData["GroupActionError"] = "Join request not found.";
+            TempData["Error"] = "Request not found.";
             return RedirectToAction(nameof(Details), new { id });
         }
-
-        ApplyJoinStats(new[] { gameGroup }, groupRequests);
 
         if (decision.Equals("approve", StringComparison.OrdinalIgnoreCase)
             && !request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase)
             && gameGroup.CurrentMemberCount >= gameGroup.MaxMembers)
         {
-            TempData["GroupActionError"] = "This group is already full.";
+            TempData["Error"] = "This group is already full.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        request.Status = decision.Equals("approve", StringComparison.OrdinalIgnoreCase)
-            ? "Approved"
-            : "Rejected";
-        request.UpdatedAt = DateTime.UtcNow;
-
         try
         {
-            await _supabase.From<GroupJoinRequestInfo>().Update(request);
-            TempData["GroupActionMessage"] = request.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase)
+            var newStatus = decision.Equals("approve", StringComparison.OrdinalIgnoreCase)
+                ? "Approved"
+                : "Rejected";
+
+            await _supabase
+                .From<GroupJoinRequestInfo>()
+                .Where(r => r.Id == requestId)
+                .Set(r => r.Status, newStatus)
+                .Set(r => r.UpdatedAt, DateTime.UtcNow)
+                .Update();
+
+            TempData["Message"] = newStatus == "Approved"
                 ? "Request approved."
                 : "Request rejected.";
         }
         catch
         {
-            TempData["GroupActionError"] = "Could not update this join request.";
+            TempData["Error"] = "Could not update this join request.";
         }
-
+    
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -434,8 +484,9 @@ public class GameGroupController : Controller
     [HttpGet]
     public async Task<IActionResult> Create()
     {
-        var gameInfos = await FetchGameInfosWithGroups();
-        return View(gameInfos);
+        var gamesResponse = await _supabase.From<GameInfo>().Get();
+        ViewBag.Games = gamesResponse.Models.OrderBy(g => g.Name).ToList();
+        return View();
     }
 
     [Authorize]
@@ -473,14 +524,15 @@ public class GameGroupController : Controller
             .From<GameGroupInfo>()
             .Where(g => g.Id == id)
             .Get();
+
         var gameGroup = groupResponse.Models.FirstOrDefault();
         if (gameGroup is null) return NotFound();
         if (gameGroup.CreatedBy != CurrentUserId) return Forbid();
+
         gameGroup.ParseMetaFromDescription();
 
         var gamesResponse = await _supabase.From<GameInfo>().Get();
         ViewBag.Games = gamesResponse.Models.OrderBy(g => g.Name).ToList();
-
         return View(gameGroup);
     }
 
@@ -492,6 +544,7 @@ public class GameGroupController : Controller
             .From<GameGroupInfo>()
             .Where(g => g.Id == id)
             .Get();
+
         var gameGroup = groupResponse.Models.FirstOrDefault();
         if (gameGroup is null) return NotFound();
         if (gameGroup.CreatedBy != CurrentUserId) return Forbid();
@@ -520,9 +573,15 @@ public class GameGroupController : Controller
             .From<GameGroupInfo>()
             .Where(g => g.Id == id)
             .Get();
+
         var gameGroup = groupResponse.Models.FirstOrDefault();
         if (gameGroup is null) return NotFound();
         if (gameGroup.CreatedBy != CurrentUserId) return Forbid();
+
+        await _supabase
+            .From<GroupJoinRequestInfo>()
+            .Where(r => r.GroupId == id)
+            .Delete();
 
         await _supabase
             .From<GameGroupInfo>()

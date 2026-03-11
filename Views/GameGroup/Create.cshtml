@@ -1,7 +1,6 @@
-@model IEnumerable<GameInfo>
-
 @{
     ViewData["Title"] = "New Group";
+    var games = ViewBag.Games as List<webapp_miniproject.Models.GameInfo> ?? new();
 }
 
 <div class="container py-3">
@@ -21,7 +20,7 @@
                             <label class="form-label text-light">Game</label>
                             <select name="GameId" class="form-select" id="gameId" required>
                                 <option value="">— select a game —</option>
-                                @foreach (var game in Model)
+                                @foreach (var game in games)
                                 {
                                     <option value="@game.Id">@game.Name</option>
                                 }

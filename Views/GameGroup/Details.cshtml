@@ -3,10 +3,17 @@
 @{
     ViewData["Title"] = Model.Title;
     var isOwner = (bool)(ViewBag.IsOwner ?? false);
-    var pendingRequests = ViewBag.PendingJoinRequests as List<webapp_miniproject.Models.GroupJoinRequestInfo> ?? new();
-    var currentUserJoinStatus = ViewBag.CurrentUserJoinStatus as string;
-    var actionMessage = TempData["GroupActionMessage"] as string;
-    var actionError = TempData["GroupActionError"] as string;
+    var memberCount = (int)(ViewBag.MemberCount ?? 0);
+    var pendingCount = (int)(ViewBag.PendingCount ?? 0);
+    var members = ViewBag.Members as List<webapp_miniproject.Models.UserInfo> ?? new();
+    var myRequest = ViewBag.MyRequest as webapp_miniproject.Models.GroupJoinRequestInfo;
+    var pendingRequests = ViewBag.PendingRequests as List<(webapp_miniproject.Models.GroupJoinRequestInfo Request, string Username)> ?? new();
+    var isLoggedIn = User.Identity?.IsAuthenticated == true;
+    var isApproved = string.Equals(myRequest?.Status, "Approved", StringComparison.OrdinalIgnoreCase);
+    var isPending = string.Equals(myRequest?.Status, "Pending", StringComparison.OrdinalIgnoreCase);
+    var canRequestAgain = myRequest?.Status is "Rejected" or "Canceled" or "Left";
+    @* var pendingRequests = ViewBag.PendingJoinRequests as List<webapp_miniproject.Models.GroupJoinRequestInfo> ?? new(); *@
+    @* var currentUserJoinStatus = ViewBag.CurrentUserJoinStatus as string; *@
 }
 
 <div class="container py-3">
@@ -33,94 +40,126 @@
                         <span class="status-badge status-@Model.EffectiveStatus.ToLowerInvariant()">@Model.EffectiveStatus</span>
                     </div>
 
-                    @if (!string.IsNullOrWhiteSpace(actionMessage))
+                    @if (TempData["Message"] is string msg)
                     {
-                        <div class="alert mb-3">@actionMessage</div>
+                        <div class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+                            @msg
+                            <button type="button" class="btn-close" onclick="this.closest('.alert').remove()">Dismiss</button>
+                        </div>
                     }
-                    @if (!string.IsNullOrWhiteSpace(actionError))
+                    @if (TempData["Error"] is string err)
                     {
-                        <div class="alert alert-danger mb-3">@actionError</div>
+                        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+                            @err
+                            <button type="button" class="btn-close" onclick="this.closest('.alert').remove()">Dismiss</button>
+                        </div>
                     }
 
                     <p class="text-light">@Model.Description</p>
 
                     <div class="small text-muted mb-3">
-                        Created @Model.CreatedAt.ToString("MMM d, yyyy") • @Model.PendingRequestCount pending request(s)
+                        Created @Model.CreatedAt.ToString("MMM d, yyyy") • @pendingCount pending request(s)
                     </div>
 
-                    @if (User.Identity?.IsAuthenticated == true && !isOwner)
+                    <!-- Non-owners: Join / status buttons -->
+                    @if (isLoggedIn && !isOwner)
                     {
-                        if (string.Equals(currentUserJoinStatus, "Approved", StringComparison.OrdinalIgnoreCase))
+                        if (isApproved)
                         {
                             <div class="alert mb-3">You are already a member of this group.</div>
+                            <form asp-action="Leave" asp-route-id="@Model.Id" method="post" class="mb-2"
+                                onsubmit="return confirm('Leave this group?');">
+                                <button type="submit" class="btn btn-sm btn-danger w-100">Leave Group</button>
+                            </form>
                         }
-                        else if (string.Equals(currentUserJoinStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+                        else if (isPending)
                         {
-                            <div class="alert mb-3">Your join request is pending approval.</div>
-                        }
-                        else if (Model.EffectiveStatus == "Open")
-                        {
-                            <form asp-action="RequestJoin" asp-route-id="@Model.Id" method="post" class="mb-3">
-                                <button type="submit" class="btn btn-primary w-100">Apply to Join</button>
+                            <button class="btn btn-sm btn-secondary w-50" disabled>Request Pending</button>
+                            <form asp-action="CancelRequest" asp-route-id="@Model.Id" method="post" class="w-50">
+                                <button type="submit" class="btn btn-sm btn-outline-danger w-100">Cancel</button>
                             </form>
                         }
                         else
                         {
-                            <div class="alert mb-3">This group is currently @Model.EffectiveStatus.ToLowerInvariant().</div>
+                            <form asp-action="RequestJoin" asp-route-id="@Model.Id" method="post" class="mb-3">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    @(canRequestAgain ? "Apply Again" : "Apply to Join")
+                                </button>
+                            </form>
                         }
                     }
-                    else if (User.Identity?.IsAuthenticated != true)
+                    else if (!isLoggedIn)
                     {
                         <a asp-controller="Account" asp-action="Login" asp-route-returnUrl="@Url.Action("Details", "GameGroup", new { id = Model.Id })" class="btn btn-secondary w-100 mb-3">Sign in to apply</a>
                     }
 
-                    @if (User.Identity?.IsAuthenticated == true && isOwner)
+                    <!-- Owner controls -->
+                    @if (isOwner)
                     {
                         <div class="d-flex gap-2 mt-auto pt-3 border-top border-secondary flex-wrap">
                             <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-light">Edit</a>
-                            <form asp-action="Delete" asp-route-id="@Model.Id" method="post"
-                                onsubmit="return confirm('Delete this group?');" class="d-inline">
+                            <form asp-action="Delete" asp-route-id="@Model.Id" method="post" class="d-inline"
+                                onsubmit="return confirm('Delete this group?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Delete Group</button>
                             </form>
                         </div>
                     }
                 </div>
             </div>
+
+            <!-- Members list -->
+            @if (members.Any())
+            {
+                <div class="card rounded-3 general-block mt-3">
+                    <div class="card-body">
+                        <h6 class="text-light mb-3">Members</h6>
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var user in members)
+                            {
+                                <li class="text-muted small py-1 border-bottom border-secondary">
+                                    @user.Username
+                                    @if (user.Id == Model.CreatedBy)
+                                    {
+                                        <span class="badge bg-secondary ms-1">owner</span>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
         </div>
 
         <div class="col-12 col-md-6 col-lg-5 d-flex flex-column">
             <div class="mb-3">
                 <div class="card rounded-3 general-block">
                     <div class="card-header border-bottom border-secondary p-0">
-                        <div class="btn-group w-100" role="group">
-                            <button type="button" class="btn btn-sm text-light flex-grow-1 border-0">
+                        <div class="btn-group btn-group-toggle w-100" role="group">
+                            <button type="button" class="btn btn-sm btn-secondary text-light flex-grow-1 border-0">
                                 <h6 class="text-light mb-0">Details</h6>
                             </button>
-                            <button type="button" class="btn btn-sm text-light flex-grow-1 border-0">
+                            <button type="button" class="btn btn-sm btn-secondary text-light flex-grow-1 border-0">
                                 <h6 class="text-light mb-0">Reviews</h6>
                             </button>
                         </div>
                     </div>
                     <div class="card-body d-flex flex-column p-3">
                         <p class="text-light">Group status: <strong>@Model.EffectiveStatus</strong></p>
-                        <p class="text-light">Capacity: <strong>@Model.CurrentMemberCount / @Model.MaxMembers</strong></p>
+                        <p class="text-light">Capacity: <strong>@memberCount / @Model.MaxMembers</strong></p>
                         <p class="text-light mb-0">Queue: <strong>@Model.QueueType</strong></p>
                     </div>
                 </div>
             </div>
             <div class="h-100">
                 <div class="card rounded-3 p-4 general-block h-100">
+                    <!-- Owner controls: Pending requests -->
                     @if (isOwner)
                     {
                         <h4 class="text-light mb-3">Join Requests</h4>
-                        @if (!pendingRequests.Any())
-                        {
-                            <p class="text-muted mb-0">No pending requests yet.</p>
-                        }
-                        else
+                        @if (pendingRequests.Any())
                         {
                             <div class="request-list">
-                                @foreach (var request in pendingRequests)
+                                @foreach (var (request, username) in pendingRequests)
                                 {
                                     <div class="request-item">
                                         <div>
@@ -142,6 +181,10 @@
                                     </div>
                                 }
                             </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No pending requests yet.</p>
                         }
                     }
                     else
