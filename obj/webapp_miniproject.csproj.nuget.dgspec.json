@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj": {}
+    "c:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj": {}
   },
   "projects": {
-    "C:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj": {
+    "c:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj",
+        "projectUniqueName": "c:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj",
         "projectName": "webapp_miniproject",
-        "projectPath": "C:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj",
+        "projectPath": "c:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\webapp_miniproject.csproj",
         "packagesPath": "C:\\Users\\USER\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\obj\\",
+        "outputPath": "c:\\Users\\USER\\Desktop\\webapp_miniproject prime\\webapp_miniproject\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\USER\\AppData\\Roaming\\NuGet\\NuGet.Config"
