@@ -14,6 +14,18 @@
     --bs-warning-rgb: 255, 204, 92;
 }
 
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
 .container,
 .container-fluid {
     width: 100%;
@@ -374,7 +386,7 @@ h6 {
 }
 
 .nav-actions {
-    margin-left: auto;
+    max-width: 100%;
 }
 
 .navbar-toggler {
@@ -384,6 +396,7 @@ h6 {
     width: 2.75rem;
     height: 2.75rem;
     padding: 0.5rem;
+    margin-left: auto;
     color: var(--text-0);
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.16);
@@ -403,6 +416,7 @@ h6 {
 
 .navbar-collapse {
     flex-basis: 100%;
+    width: 100%;
 }
 
 .navbar-nav {
@@ -421,6 +435,12 @@ h6 {
     display: inline-flex;
     align-items: center;
     padding: 0.45rem 0;
+}
+
+.games-rail,
+.group-scroll-row {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
 }
 
 .collapse:not(.show) {
@@ -1340,6 +1360,8 @@ a:hover {
         display: flex !important;
         flex: 1 1 auto;
         flex-basis: auto;
+        align-items: center;
+        justify-content: space-between;
     }
 
     .navbar-expand-lg .navbar-nav {
@@ -1349,7 +1371,7 @@ a:hover {
 
     .navbar-expand-lg .nav-actions {
         margin-left: 1rem;
-        order: 3;
+        flex: 0 0 auto;
     }
 
     .navbar-expand-lg .nav-link {
@@ -1383,17 +1405,67 @@ a:hover {
         padding-top: 68px;
     }
 
+    .navbar {
+        min-height: 64px;
+    }
+
+    .navbar .container-fluid {
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .navbar-brand {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: calc(100% - 3.5rem);
+        padding-right: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
     .navbar-collapse {
         padding-top: 0.4rem;
+        width: 100%;
     }
 
     .navbar-nav {
         width: 100%;
+        gap: 0;
+    }
+
+    .nav-item {
+        width: 100%;
+    }
+
+    .nav-link {
+        width: 100%;
+        padding: 0.7rem 0;
+    }
+
+    .nav-actions {
+        width: 100%;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .nav-actions .btn {
+        flex: 1 1 0;
+        min-width: 0;
     }
 
     .page-hero {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .page-hero > * {
+        width: 100%;
+    }
+
+    .page-hero .btn {
+        width: 100%;
     }
 
     .group-section-head h3 {
@@ -1430,6 +1502,21 @@ a:hover {
         padding-right: 0.8rem;
     }
 
+    .navbar-brand {
+        font-size: 1rem;
+        max-width: calc(100% - 3.3rem);
+    }
+
+    .nav-actions {
+        gap: 0.4rem;
+    }
+
+    .nav-actions .btn {
+        min-height: 2.5rem;
+        padding-left: 0.7rem;
+        padding-right: 0.7rem;
+    }
+
     .hero-picture {
         min-height: 300px;
     }
@@ -1459,5 +1546,11 @@ a:hover {
     .group-card-image,
     .group-card-fallback {
         height: 132px;
+    }
+
+    .group-section-head {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
     }
 }
