@@ -49,7 +49,6 @@ public class GameGroupInfo : BaseModel
     [Column("created_by")]
     public int? CreatedBy { get; set; }
 
-    // JsonIgnore tells the Supabase SDK to skip this property on INSERT/UPDATE
     [JsonIgnore]
     public GameInfo? Game { get; set; }
 

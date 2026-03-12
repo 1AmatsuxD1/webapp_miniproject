@@ -21,8 +21,6 @@ public class AccountController : Controller
         _supabase = supabase;
     }
 
-    // -- Login ----------------------------------------------------------------
-
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
@@ -40,7 +38,6 @@ public class AccountController : Controller
     
         var user = response.Models.FirstOrDefault();
 
-        // No user matched
         if (user is null)
         {
             ViewBag.Error = "Incorrect username or password.";
@@ -57,8 +54,6 @@ public class AccountController : Controller
 
         return RedirectToAction("Index", "Home");
     }
-
-    // -- Sign up ----------------------------------------------------------------
 
     [HttpGet]
     public IActionResult SignUp() => View();
@@ -78,7 +73,6 @@ public class AccountController : Controller
             return View();
         }
 
-        // Check if username is taken taken
         var existing = await _supabase
             .From<UserInfo>()
             .Where(u => u.Username == username)
@@ -108,8 +102,6 @@ public class AccountController : Controller
         await SignInCookie(createdUser.Id.ToString(), createdUser.Username);
         return RedirectToAction("Index", "Home");
     }
-
-    // -- Logout ----------------------------------------------------------------
 
     [Authorize]
     [HttpGet]
@@ -260,8 +252,6 @@ public class AccountController : Controller
         return RedirectToAction("Index", "Home");
     }
 
-    // -- Delete Account ----------------------------------------------------------------
-
     [Authorize]
     [HttpGet]
     public IActionResult DeleteAccount() => View();
@@ -286,8 +276,6 @@ public class AccountController : Controller
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction("Index", "Home");
     }
-
-    // -- Helper ----------------------------------------------------------------
 
     private async Task SignInCookie(string userId, string email)
     {

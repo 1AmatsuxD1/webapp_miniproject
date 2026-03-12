@@ -30,7 +30,7 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
     app.UseHsts();
-    app.UseHttpsRedirection(); // Only redirect to HTTPS in production
+    app.UseHttpsRedirection();
 }
 
 app.MapPost("/api/gameGroups", async (
@@ -81,7 +81,7 @@ app.MapDelete("/gameGroups/{id}", async (int id, Supabase.Client client) =>
 app.UseStaticFiles();
 app.UseRouting();
 
-app.UseAuthentication(); // Must come before UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
@@ -90,7 +90,3 @@ app.MapControllerRoute(
 );
 
 app.Run();
-
-// Test Account
-// 67010321@kmitl.ac.th
-// Asdc5523

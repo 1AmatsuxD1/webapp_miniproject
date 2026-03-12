@@ -22,9 +22,6 @@ public class GameGroupController : Controller
     };
 
     private int? CurrentUserId => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
-
-    // -- Helper ----------------------------------------------------------------
-
     public GameGroupController(Supabase.Client supabase)
     {
         _supabase = supabase;
@@ -172,11 +169,9 @@ public class GameGroupController : Controller
         }
     }
 
-    // Case-insensitive status check
     private static bool StatusIs(string status, string expected) =>
         status.Equals(expected, StringComparison.OrdinalIgnoreCase);
 
-    // -- Index ----------------------------------------------------------------
 
     [HttpGet]
     public async Task<IActionResult> Index()
@@ -212,12 +207,12 @@ public class GameGroupController : Controller
         return PartialView("_GameGroups", filtered);
     }
 
-    // -- Details ----------------------------------------------------------------
+
 
     [HttpGet]
     public async Task<IActionResult> Details(int id)
     {
-        // Fetch the group and its associated game
+
         var groupResponse = await _supabase
             .From<GameGroupInfo>()
             .Where(g => g.Id == id)
@@ -234,7 +229,6 @@ public class GameGroupController : Controller
 
         gameGroup.Game = gameResponse.Models.FirstOrDefault();
 
-        // Fetch all requests for this group, then split by status
         var allRequests = await FetchJoinRequestsSafeAsync();
         var groupRequests = allRequests.Where(r => r.GroupId == id).ToList();
         var approvedRequests = groupRequests
@@ -244,12 +238,10 @@ public class GameGroupController : Controller
             .Where(r => r.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // Resolve usernames for all approved members in one query
         var allUsers = (await _supabase.From<UserInfo>().Get()).Models;
         var approvedUserIds = approvedRequests.Select(r => r.UserId).ToHashSet();
         var members = allUsers.Where(u => approvedUserIds.Contains(u.Id)).ToList();
 
-        // Find the current user's most recent request for this group (any status)
         var myRequest = CurrentUserId is not null
             ? groupRequests
                 .Where(r => r.UserId == CurrentUserId.Value)
@@ -258,7 +250,6 @@ public class GameGroupController : Controller
                 .FirstOrDefault()
             : null;
 
-        // For owner: pair each pending request with the requester's username
         List<(GroupJoinRequestInfo Request, string Username)> pendingWithUsers = new();
         List<(GroupJoinRequestInfo Request, string Username)> approvedWithUsers = new();
         if (CurrentUserId == gameGroup.CreatedBy)
@@ -292,8 +283,6 @@ public class GameGroupController : Controller
         return View(gameGroup);
     }
 
-    // -- Request Join ----------------------------------------------------------------
-
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -314,14 +303,12 @@ public class GameGroupController : Controller
 
         gameGroup.ParseMetaFromDescription();
 
-        // Owners can't request to join their own group
         if (gameGroup.CreatedBy == CurrentUserId)
         {
             TempData["Error"] = "You already own this group.";
             return RedirectToAction(nameof(Details), new { id });
         }
 
-        // Get this user's most recent request for this group
         var allRequests = await FetchJoinRequestsSafeAsync();
         var myRequest = allRequests
             .Where(r => r.GroupId == id && r.UserId == CurrentUserId.Value)
@@ -333,7 +320,6 @@ public class GameGroupController : Controller
         {
             if (myRequest is null)
             {
-                // No prior request — create a fresh one
                 await _supabase
                     .From<GroupJoinRequestInfo>()
                     .Insert(new GroupJoinRequestInfo
@@ -356,7 +342,6 @@ public class GameGroupController : Controller
             }
             else
             {
-                // Was Rejected, Canceled, or Left — reuse the row and set back to Pending
                 await _supabase
                     .From<GroupJoinRequestInfo>()
                     .Where(r => r.Id == myRequest.Id)
@@ -373,8 +358,6 @@ public class GameGroupController : Controller
 
         return RedirectToAction(nameof(Details), new { id });
     }
-
-    // -- Cancel Request ----------------------------------------------------------------
 
     [Authorize]
     [HttpPost]
@@ -396,8 +379,6 @@ public class GameGroupController : Controller
 
         return RedirectToAction(nameof(Details), new { id });
     }
-
-    // -- Leave Group ----------------------------------------------------------------
 
     [Authorize]
     [HttpPost]
@@ -470,8 +451,6 @@ public class GameGroupController : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    // -- Update Join Request (owner approve/reject) ----------------------------------------------------------------
-
     [Authorize]
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -534,8 +513,6 @@ public class GameGroupController : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
-    // -- Create Game Group ----------------------------------------------------------------
-
     [Authorize]
     [HttpGet]
     public async Task<IActionResult> Create()
@@ -549,7 +526,6 @@ public class GameGroupController : Controller
     [HttpPost]
     public async Task<IActionResult> Create(GameGroupInfo model)
     {
-        // Let Supabase generates ID
         var gameGroup = new GameGroupInfo
         {
             GameId = model.GameId,
@@ -569,8 +545,6 @@ public class GameGroupController : Controller
         await _supabase.From<GameGroupInfo>().Insert(gameGroup);
         return RedirectToAction(nameof(Index));
     }
-
-    // -- Edit Game Group ----------------------------------------------------------------
 
     [Authorize]
     [HttpGet]
@@ -618,8 +592,6 @@ public class GameGroupController : Controller
         await _supabase.From<GameGroupInfo>().Update(gameGroup);
         return RedirectToAction(nameof(Details), new { id });
     }
-
-    // -- Delete Game Group ----------------------------------------------------------------
 
     [Authorize]
     [HttpPost]
