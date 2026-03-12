@@ -155,11 +155,6 @@ public class AccountController : Controller
 
         model.IsCurrentUser = false;
 
-        if (!profileLoaded)
-        {
-            ViewBag.Error = "This player's profile details are not available yet.";
-        }
-
         return View("Profile", model);
     }
 
